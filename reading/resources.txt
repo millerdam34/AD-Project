@@ -1,3 +1,3 @@
 https://rufflewind.com/2016-12-30/reverse-mode-automatic-differentiation
 https://youtu.be/R_m4kanPy6Q
-
+https://medium.com/analytics-vidhya/unraveling-automatic-differentiation-6d5f0196f219
