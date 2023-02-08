@@ -1,6 +1,7 @@
 https://rufflewind.com/2016-12-30/reverse-mode-automatic-differentiation
 https://youtu.be/R_m4kanPy6Q
 https://medium.com/analytics-vidhya/unraveling-automatic-differentiation-6d5f0196f219
+https://www.cs.cmu.edu/~wcohen/10-605/notes/autodiff.pdf
 
 matrix market: hessian:
 https://math.nist.gov/MatrixMarket/data/Harwell-Boeing/airtfc/airtfc.html
