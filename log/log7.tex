@@ -1,0 +1,32 @@
+\documentclass[12pt, letterpaper]{article}
+\title{Log 7}
+\author{Damion Miller}
+\date{\today}
+
+
+\begin{document}
+\maketitle
+\section*{Targets}
+\begin{itemize}
+\item Implement reverse mode AD in Julia using Tape (array of nodes)
+\end{itemize}
+
+\section*{Accomplishments}
+\begin{itemize}
+\item Implemented proof of concept reverse mode AD in Julia
+\item Gained deeper understanding of directional derivatives
+\end{itemize}
+
+\section*{Questions}
+\begin{itemize}
+\item How to link tape to overloaded functions?
+\item How to have dynamic size array?
+\item How to take second derivaties?
+\end{itemize}
+
+\section*{Goals}
+\begin{itemize}
+\item Flesh out operator overloads in both forward and reverse implementation
+\item Figure out how to have each operator add Node to tape without passing tape as an arument
+\end{itemize}
+\end{document}
