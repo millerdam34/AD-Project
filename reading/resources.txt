@@ -5,3 +5,7 @@ https://www.cs.cmu.edu/~wcohen/10-605/notes/autodiff.pdf
 
 matrix market: hessian:
 https://math.nist.gov/MatrixMarket/data/Harwell-Boeing/airtfc/airtfc.html
+
+AD for second derivatives
+https://en.wikipedia.org/wiki/Hessian_automatic_differentiation
+
