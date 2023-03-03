@@ -1,0 +1,31 @@
+\documentclass[12pt, letterpaper]{article}
+\title{Log 8}
+\author{Damion Miller}
+\date{\today}
+
+\begin{document}
+\maketitle
+\section*{Targets}
+\begin{itemize}
+\item Flesh out operator overloads in both forward and reverse implementation
+\item Figure out how to have each operator add Node to tape without passing tape as an arument
+\end{itemize}
+
+\section*{Accomplishments}
+\begin{itemize}
+\item Researched methods for computing second order derivatives 
+\item Made progress towards hessian matrix implementation
+\end{itemize}
+
+\section*{Questions}
+\begin{itemize}
+\item How to use dual numbers to obtain the derivative of the gradient function returned from reverse pass
+\item What exactly makes revserse-forward the optimal method to compute the hessian
+\end{itemize}
+
+\section*{Goals}
+\begin{itemize}
+\item Implement hessian computation in Julia
+\item Understand the complexity differences between different combinations of reverse and forward passes
+\end{itemize}
+\end{document}
