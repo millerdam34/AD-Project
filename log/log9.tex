@@ -1,0 +1,36 @@
+\documentclass[12pt, letterpaper]{article}
+\title{Log 8}
+\author{Damion Miller}
+\date{\today}
+
+\begin{document}
+\maketitle
+\section*{Targets}
+\begin{itemize}
+\item Implement hessian computation in Julia
+\item Understand the complexity differences between different combinations of reverse and forward passes
+\end{itemize}
+
+\section*{Accomplishments}
+\begin{itemize}
+\item Implemented hessian computations in both forward-forward and reverse-forward
+\item Solved the issue with tape size
+\item Abstracted forward mode derivative function to handle arbitrary direction vectors
+\end{itemize}
+
+\section*{Questions}
+\begin{itemize}
+\item How to solve the issue with overlapping tapes in forward-reverse and reverse-reverse implementations?
+\item How to abstract forward mode implementation for any order derivative?
+\item Differences between array versus tree based implementations of reverse mode?
+\item Storing dependecies in node for efficent updates?
+\item How to reuse duplicate nodes? (book example)
+\item How to balance computation tree for parallelization? (product example)
+\end{itemize}
+
+\section*{Goals}
+\begin{itemize}
+\item Solve the problem with overlapping tapes
+\item Prepare poster for URSS
+\end{itemize}
+\end{document}
