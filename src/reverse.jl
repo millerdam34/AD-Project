@@ -17,15 +17,37 @@ mutable struct Node{T}
     op::Int64
 end
 
+# unary
 Base.:log(f::Node) = log_AD(f)
-Base.:*(f::Node, g::Node) = mult_AD(f,g)
 Base.:sin(f::Node) = sin_AD(f)
 Base.:cos(f::Node) = cos_AD(f)
-Base.:+(f::Node, g::Node) = add_AD(f,g)
-Base.:-(f::Node,g::Node) = sub_AD(f,g)
-Base.:/(f::Node,g::Node) = div_AD(f,g)
 Base.:exp(f::Node) = exp_AD(f)
 
+# binary
+Base.:*(f::Node, g::Node) = mult_AD(f,g)
+Base.:+(f::Node, g::Node) = add_AD(f,g)
+Base.:-(f::Node, g::Node) = sub_AD(f,g)
+Base.:/(f::Node, g::Node) = div_AD(f,g)
+Base.:^(f::Node, g::Node) = pow_AD(f,g)
+
+# constants
+Base.:*(f::Number, g::Node) = insert_constant(f, g) * g
+Base.:+(f::Number, g::Node) = insert_constant(f, g) + g
+Base.:-(f::Number, g::Node) = insert_constant(f, g) - g
+Base.:/(f::Number, g::Node) = insert_constant(f, g) / g
+Base.:/(f::Node, g::Number) = f / insert_constant(g, f)
+Base.:^(f::Number, g::Node) = insert_constant(f,g)^g
+Base.:^(f::Node, g::Number) = f^insert_constant(g,f)
+
+function insert_constant(f::Number, g::Node)
+    g.tape_struct.size += 1
+    return g.tape_struct.tape[g.tape_struct.size] = Node(f * one(g.val), -1, -1, zero(g.val), zero(g.val), zero(g.val), g.tape_struct.size, g.tape_struct, 0)
+end
+
+function pow_AD(f::Node,g::Node)::Node
+    f.tape_struct.size += 1
+    return f.tape_struct.tape[f.tape_struct.size] = Node(f.val^g.val, f.index, g.index, zero(f.val), g.val * f.val ^ (g.val - 1), f.val^g.val * log(f.val), f.tape_struct.size, f.tape_struct, 1)
+end
 function exp_AD(f::Node)::Node
     f.tape_struct.size += 1
     return f.tape_struct.tape[f.tape_struct.size] = Node(exp(f.val), f.index, -1, zero(f.val), exp(f.val), zero(f.val), f.tape_struct.size, f.tape_struct, 1)

@@ -1,5 +1,4 @@
-include("forward.jl")
-include("reverse.jl")
+include("derivatives.jl")
 
 # straightforward implementation of calculating every second order derivative of a function
 # using minimal external function calls
@@ -168,78 +167,29 @@ function hessian_rf!(f, input)::Matrix
 end
 
 
+
 # WIP 
 function hessian_fr(f, input)::Matrix
     n = length(input)
     type = typeof(input[1])
     hessian = Matrix{type}(undef, n, n)
-
-    # count length of f and f_prime tapes
-    input_counter = fill(Dual(Counter(0), Counter(0)), n)
-    input_count = f(input_counter)
-    input_count_f = input_count.val.count + n
-    input_count_f′ = input_count.der.count + 2n
-
-    println(input_count_f)
-    println(input_count_f′)
-    
-    # initialize tapes for both functions f and f′
-    f_tape_struct = Tape(Array{Node,1}(undef, input_count_f), 0)
-    f′_tape_struct = Tape(Array{Node,1}(undef, input_count_f′), 0)
-
-    # initialize input vector of Dual(Node, Node)
-    input_dual = Array{Dual,1}(undef, n)
-
-    # initialize first n elements of f_tape and first 2n element of f′_tape
-    for i in 1:n
-        x = input[i]
-
-        # f inputs for f′_tape
-        node1 = Node(x, -1, -1, zero(x), zero(x), zero(x), i, f′_tape_struct, 0)
-        f′_tape_struct.tape[i] = node1
-
-        # directional inputs for f′_tape
-        node2 = Node(zero(x), -1, -1, zero(x), zero(x), zero(x), i + n, f′_tape_struct, 0)
-        f′_tape_struct.tape[i + n] = node2
-
-        # f inputs for f_tape
-        node3 = Node(x, -1, -1, zero(x), zero(x), zero(x), i, f_tape_struct, 0)
-        f_tape_struct.tape[i] = node3
-
-        # increment sizes
-        f_tape_struct.size += 1
-        f′_tape_struct.size += 2
-        
-        # add to input_dual for generation of f′_tape
-        input_dual[i] = Dual(node3, node2)
-    end
-
-    # generate f_tape and f′_tape
-    f(input_dual)
+    direction = zeros(n)
 
     for i in 1:n
-        # set direction
-        f′_tape_struct.tape[i + n].val = one(type)
-
-        # reset tape2 and prepare for rewind in specific direction and update values in tape
-        for j in 1:f′_tape_struct.size
-            f′_tape_struct.tape[j].adj = zero(type)
-            update_node(f′_tape_struct.tape[j])
-        end
-
-        # rewind f′_tape to get gradient of f′ function
-        rewind(f′_tape_struct)
+        direction[i] = 1
+        row = forward_reverse(f, input, direction, true)
 
         # store hessian values
         for j in i:n
-            hessian[i, j] = f′_tape_struct.tape[j].adj
+            hessian[i, j] = row[j]
             if i != j
                 hessian[j, i] = hessian[i, j]
             end
         end
 
         # reset direction
-        f′_tape_struct.tape[i + n].val = zero(type)
+        direction[i] = 0
     end
     return hessian
 end
+

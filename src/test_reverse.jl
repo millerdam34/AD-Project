@@ -7,6 +7,13 @@ x₁ = 1.0
 x₂ = 2.0
 x₃ = π/2
 
+f₄((x₁,x₂)) = x₁^3+x₂^2
+
+
+
+@time gradient_f(f₄, (1.0,2.0))
+@time gradient_r(f₄, (1.0,2.0))
+
 # 0.129204 seconds (243.83 k allocations: 12.681 MiB, 6.21% gc time, 99.42% compilation time)
 # 2-element Vector{Float64}:
 @time gradient_r(f₁, (x₁, x₂))
@@ -30,3 +37,7 @@ x = map(x -> x + 0.5, rand(Float64, 1000000))
 # 10000000-element Vector{Float64}:
 x = map(x -> x + 0.5, rand(Float64, 10000000))
 @time gradient_r(f₃, x)
+
+f((x₁,x₂)) = 3.0 * x₁ + x₂
+
+gradient_r(f, [1.0,2.0])

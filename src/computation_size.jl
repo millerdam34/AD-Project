@@ -12,7 +12,13 @@ Base.:sin(x::Counter) = Counter(x.count + 1)
 Base.:cos(x::Counter) = Counter(x.count + 1)
 Base.:exp(x::Counter) = Counter(x.count + 1)
 Base.:log(x::Counter) = Counter(x.count + 1)
-Base.:^(x::Counter, n::Int) = Counter(x.count + 1)
+Base.:^(x::Counter, n::Int) = Counter(x.count + 2)
+
+# constants
+Base.:+(x::Number, y::Counter) = Counter(y.count + 2)
+Base.:-(x::Number, y::Counter) = Counter(y.count + 2)
+Base.:*(x::Number, y::Counter) = Counter(y.count + 2)
+Base.:/(x::Number, y::Counter) = Counter(y.count + 2)
 
 # counts the number of basic operations performed in the evaluation of a function
 # and returns the number of nodes in a corresponding computation graph

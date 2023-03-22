@@ -48,6 +48,15 @@ function derivative_value_f(f, input::Vector, direction::Vector, normalize::Bool
     return f(input_dual)
 end
 
+function norm(input::Vector)::Float64
+    n = length(input)
+    sum = 0;
+    for i in 1:n
+        sum += input[i]^2
+    end
+    return sqrt(sum)
+end
+
 # calculates the second derivative using Dual{Dual} numbers
 # input: x⃗
 # direction1: x⃗₁
@@ -58,8 +67,8 @@ function second_derivative_f(f, input::Vector, direction1::Vector, direction2::V
     if (!normalize1)
         input_dual1 = map(x -> Dual(x, zero(input[1])), direction1)
     else
-        norm = norm(direction1)
-        input_dual1 = map(x -> Dual(x / norm, zero(input[1])), direction1)
+        mag = norm(direction1)
+        input_dual1 = map(x -> Dual(x / mag, zero(input[1])), direction1)
     end
     # Dual(x⃗, ∂x/∂x⃗₂)
     input_dual2 = to_dual(input, direction2, normalize2)
@@ -88,7 +97,6 @@ function gradient_f(f, input)::Vector
     return grad
 end
 
-
 # input: x⃗
 # direction: x⃗₁
 # x⃗ -> Dual(x⃗, ∂x⃗/∂x⃗₁)
@@ -96,14 +104,69 @@ end
 function to_dual(input::Vector, direction::Vector, normalize::Bool=true)
     n = length(input)
     if (normalize)
-        norm = norm(direction)
-        if (norm)
-            map(x -> x / norm, direction)
+        mag = norm(direction)
+        if (mag != 0 || mag == 1)
+            direction = map(x -> x / mag, direction)
         end
     end
     input_dual = Array{Dual{typeof(input[1])}, 1}(undef, n)
     for i in 1:n
-        input_dual[i] = Dual(input[i], direction[i])
+        input_dual[i] = Dual(input[i], one(input[1]) * direction[i])
     end
     return input_dual
 end
+
+# creates vector of nested duals from two vectors of dual numbers
+function duals_to_dual(dual1::Vector, dual2::Vector)::Vector
+    n = length(dual1)
+
+    duals = Array{Dual, 1}(undef, n)
+
+    for i in 1:n
+        duals[i] = Dual(dual1[i], dual2[i])        
+    end
+    return duals
+end
+
+# normalizes a matrix by columns used for directions
+function normalize_matrix(directions::Matrix)::Matrix
+    n, order = size(directions)
+    for i in 1:order
+        mag = norm(directions[:,i])
+        for j in 1:n
+            directions[j, i] /= mag
+        end
+    end
+    return directions
+end
+
+# creates a vector of nested duals sufficient for calculating n order derivative
+function recurrsive_to_dual(in1::Vector, in2::Vector, directions::Matrix, index::Int, root::Bool=false)::Vector
+    n, order = size(directions)
+    if index == 1
+        return to_dual(in1, in2, false)
+    end
+
+    # left subtree only leftmost branch has nonzero right input
+    dual1 = recurrsive_to_dual(in1, root ? directions[:,order - index + 2] : zeros(n), directions, index - 1, root)
+    # right subtree
+    dual2 = recurrsive_to_dual(in2, zeros(n), directions, index - 1)
+
+    return duals_to_dual(dual1, dual2)
+end
+
+# calculates n order direivative by recursively applying forward mode (hyper dual numbers)
+function n_derivative(f, input::Vector, directions::Matrix, normal::Bool=false)
+    if (!normal)
+        directions = normalize_matrix(directions)
+    end
+    n, order = size(directions)
+    input_duals = recurrsive_to_dual(input, directions[:,1], directions, order, true)
+    ans = f(input_duals)
+    for i in 1:order-1
+        ans = ans.der
+    end
+    return ans.der
+end
+
+
