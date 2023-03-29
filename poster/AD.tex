@@ -40,11 +40,16 @@
 \usepackage{algorithm}
 \usepackage{algpseudocode}
 \usepackage{mathtools}
+\usepackage{etoolbox}
+\AtBeginEnvironment{algorithm}{%
+    \setlength{\columnwidth}{\linewidth}%
+}
 \lstset{
   basicstyle=\ttfamily,
   mathescape
 }
 \usepackage{pgf,tikz}
+\usetikzlibrary{positioning}
 \usepackage{pgfplots}
 \pgfplotsset{compat=newest}
 
@@ -75,7 +80,7 @@
   \veryHuge \color{NavyBlue} \textbf{Automatic Differentiation} \color{Black}\\ % Title
   \Huge\textit{Inside the Black Box at the Heart of Machine Learning}\\[1cm] % Subtitle
   \huge \textbf{Damion A.~Miller}\\ % Author(s)
-  \huge Michigan Tech\\ % University/organization
+  \huge Michigan Technological University\\ % University/organization
 \end{minipage}
 %
 \begin{minipage}[b]{0.22\linewidth}
@@ -103,11 +108,11 @@
 %----------------------------------------------------------------------------------------
 
 \begin{abstract}
-    Automaic differentiation (AD) if a method for accurately and efficiently
-    computing derivativatives of functions. I explore two different methods
-    of AD both having different pros and cons, as well as different combinations
-    of these methods all with unique outcomes. Using these results we are able to
-    apply them to many applications such as machine learning or solving differential
+    Automatic differentiation is a method for accurately and efficiently
+    computing derivatives of functions. I implement two different methods, namely,
+    forward mode and reverse mode. Furthermore, I explore different combinations
+    of these methods for evaluating higher order derivavtives. Using these results we are able to
+    apply them to many applications such as machine learning and solving differential
     equations.
 \end{abstract}
 
@@ -116,13 +121,10 @@
 \section*{Motivation}
 \begin{itemize}[noitemsep]
 \item Derivatives are present in almost all areas of engineering.
-\item Especially relevant in machine learning where the gradient (a derivative
-    in the direction of steepes ascent) must be calulated large numbers of times
-    over functions with large input vectors.
-\item Find efficient algorithms for solving different problems involving derivatives
-    using purposefully choosen combinations of AD.
+\item Relevant in machine learning where the gradient (a derivative
+    in the direction of steepest ascent) must be calulated repeatedly
+    over functions with a large number of inputs.
 \end{itemize}
-    \vspace{-1cm}
 \section*{Computational Graph}
     Let $f:\mathbb{R}^n\rightarrow\mathbb{R}$ and $\vec{x}=(x_1,x_2,\dots,x_n)^T\in\mathbb{R}^n$
 
@@ -134,159 +136,272 @@
     4.\ f(\vec{x})&=\alpha &&\alpha\in\mathbb{R}
 \end{align*}
 
-Now recurse on $h(\vec{x})$ and $g(\vec{x})$ in case 1 until case 3 or 4 returned.
-At this point we have what is known as a computational graph of $f(\vec{x})$.
+We can build a computational graph of $f(\vec{x})$ by recursing on $h(\vec{x})$ (and $g(\vec{x})$ in case 1) until case 3 or 4 are returned.
+
+\subsubsection*{Example: $f(x_1,x_2)=x_1*x_2+\sin{(x_1)}$}
 
 \begin{center}
-    \includegraphics[width=100mm]{figures/comp_graph.pdf}
-    \captionof{figure}{Computational graph of $f(x_2,x_2)=x_1*x_2+\sin{(x_1)}$}
+\begin{tikzpicture}[main/.style = {draw, circle, minimum size = 2cm}]
+    \node[main] (1) [label={180:$w_1$}]{$x_1$};
+    \node[main] (2) [right = 1cm of 1][label={0:$w_2$}] {$x_2$};
+    \node[main] (3) [above = 1cm of 1][label={180:$\sin{(w_1)}=w_3$}] {$\sin$};
+    \node[main] (4) [above = 1cm of 2][label={0:$w_4=w_1*w_2$}] {$*$};
+    \node[main] (5) [above = 1cm of 3][label={0:$w_5=w_3+w_4$}]{$+$};
+    \draw (1) -- (3);
+    \draw (1) -- (4);
+    \draw (2) -- (4);
+    \draw (3) -- (5);
+    \draw (4) -- (5);
+\end{tikzpicture}
 \end{center}
 
-    \section*{Forward Mode}
-\begin{thm}
-    Let $l(\vec{x}):\mathbb{R}^n\rightarrow\mathbb{R}$ be the function $l(\vec{x})=x_i$ where $\vec{x}^T=(x_1,x_2,\dots,x_n)$ and $1\leq i\leq n$.
-    Let $\vec{z}\in\mathbb{R}^n$ be a unit vector. 
-    Then $\frac{\partial}{\partial\vec{z}}l(\vec{x})=z_i$.
-    \begin{proof}
-        $$\frac{\partial}{\partial\vec{z}}l(\vec{x})=\lim_{h\rightarrow0}\frac{l(\vec{x} + h\vec{z}) - l(\vec{x})}{h}=\lim_{h\rightarrow0}\frac{x_i + hz_i - x_i}{h}=z_i.$$
-    \end{proof}
-\end{thm}
-
-Using this information, functions and their derivatives with respect to a direction,
-we can easily obtain the composition function and its derivative with repect to that direction.
-
+\section*{Forward Mode}
 Case 1: Binary (product rule, quotient rule, etc.) 
 
-    Given $(g(\vec{x}),\frac{\partial g}{\partial\vec{z}}),(h(\vec{x}),\frac{\partial h}{\partial\vec{z}})$,and $f(\vec{x})=g(\vec{x})\odot h(\vec{x})$
+    Given $\left(g(\vec{x}),\frac{\partial g}{\partial\vec{z}}\right),\left(h(\vec{x}),\frac{\partial h}{\partial\vec{z}}\right)$, and $f(\vec{x})=g(\vec{x})\odot h(\vec{x})$
     \begin{equation}
         \frac{\partial f}{\partial\vec{z}}=
             \begin{cases}
-                \frac{\partial g}{\partial\vec{z}} + \frac{\partial h}{\partial\vec{z}} & \text{if } \odot = +\\
-                \frac{\partial g}{\partial\vec{z}} - \frac{\partial h}{\partial\vec{z}} & \text{if } \odot = -\\
+                \frac{\partial g}{\partial\vec{z}}\pm\frac{\partial h}{\partial\vec{z}} & \text{if } \odot = \pm\\
                 g(\vec{x})\frac{\partial h}{\partial\vec{z}} + h(\vec{x})\frac{\partial g}{\partial\vec{z}} & \text{if } \odot = *\\
                 \frac{h(\vec{x})\frac{\partial g}{\partial\vec{z}} - g(\vec{x})\frac{\partial h}{\partial\vec{z}}}{(h(\vec{x}))^2} & \text{if } \odot = /\\
                 \dots
             \end{cases}
     \end{equation}
 
+\vspace{10cm}
 Case 2: Unary (chain rule)
 
-    Given $(h(\vec{x}),\frac{\partial h}{\partial\vec{z}})$ and $f(\vec{x})=g(h(\vec{x}))$
+    Given $\left(h(\vec{x}),\frac{\partial h}{\partial\vec{z}}\right)$ and $f(\vec{x})=g(h(\vec{x}))$
     \begin{equation}
-        \frac{\partial f}{\partial\vec{z}}=\frac{\partial}{\partial\vec{z}}g(h(\vec{x}))=\underbracket{\frac{dg}{dh}}_{\text{trival}}*\underbracket{\frac{\partial h}{\partial\vec{z}}}_{\text{given}}
+        \frac{\partial f}{\partial\vec{z}}=\frac{\partial}{\partial\vec{z}}\;g(h(\vec{x}))=\underbracket{\frac{dg}{dh}}_{\text{trivial}}*\underbracket{\frac{\partial h}{\partial\vec{z}}}_{\text{given}}
     \end{equation}
     \begin{equation}
         \frac{dg}{dh}=
             \begin{cases}
                 \cos{(h(\vec{x}))} & \text{if } g(x) = \sin{(x)}\\
-                -\sin{(h(\vec{x}))} & \text{if } g(x) = \cos{(x)}\\
                 \exp{(h(\vec{x}))} & \text{if } g(x) = \exp{(x)}\\
                 \frac{1}{h(\vec{x})} & \text{if } g(x) = \log{(x)}\\
                 \dots
             \end{cases}
     \end{equation}
+Case 3:
+    
+\begin{thm}
+    Let $f(\vec{x})$ be the function $f(\vec{x})=x_i$ where $\vec{x}=(x_1,x_2,\dots,x_n)^T$ and $1\leq i\leq n$.
+    Let $\vec{z}\in\mathbb{R}^n$ be a unit vector. 
+    Then $\frac{\partial}{\partial\vec{z}}f(\vec{x})=z_i$.
+    \begin{proof}
+        $$\frac{\partial}{\partial\vec{z}}f(\vec{x})=\lim_{h\rightarrow0}\frac{f(\vec{x} + h\vec{z}) - f(\vec{x})}{h}=\lim_{h\rightarrow0}\frac{x_i + hz_i - x_i}{h}=z_i.$$
+    \end{proof}
+\end{thm}
+\subsection*{Dual Numbers}
+A dual number of a fuction $f(\vec{x})$ is defined to be the tuple: 
+$$\left(f(\vec{x}),\frac{\partial}{\partial\vec{z}}\;f(\vec{x})\right).$$
 
-Using the above relations we are able to build up from trivial functions and their corresponding
-derivatives until we obtain our original function and its derivative in the desired direction.
-\vspace{-1cm}
 \subsection*{Implementation}
-\vspace{-1cm}
 \begin{center}
     \includegraphics[width=250mm]{figures/forward_mode.png}
-    \captionof{figure}{Simple forward mode implementation in Julia using Dual numbers and operator overloading.}
 \end{center}
-\vspace{-1cm}
-\subsection*{Algorithm}
-    \textbf{Input:} \\ 
-    $f(\vec{x}):\mathbb{R}^n\rightarrow\mathbb{R}$ \quad \textit{function} \\
-    $\vec{x}\in\mathbb{R}^n$ \quad \textit{input point} \\
-    $\vec{z}\in\mathbb{R}^n$ \quad \textit{direction} \\
-    \textbf{Output:} $(f(\vec{x}),\frac{\partial}{\partial\vec{z}}f(\vec{x}))$ \\
-    $D\leftarrow$ Initialized vector of $n$ Dual numbers \\
-    \textbf{for } $i\leftarrow1$\textbf{ to } $n$ \\
-    $\text{    } D[i]\leftarrow Dual(x_i, z_i)$ \\
-    \textbf{return} $f(D)$ \\
-
-We simply have to do the upfront work of mapping the original input vector to 
-a vector with dual number components, each with a derivative value equal to the
-corresponding component from the direction vector (Threorem 1). Then, once the function
-is called on the dual number vector the evaluation of the function will be equivalent
-to recursively breaking down the function until case 3 or 4 is obtained, from which 
-the function and its derivative can be built up from, which is all handled via operator
-overloading.
+\begin{algorithm}[H]
+\caption{Forward Mode}
+    \hspace*{\algorithmicindent} \textbf{Input}: $f(\vec{x}),\vec{x},\vec{z}$ \\
+    \hspace*{\algorithmicindent} \textbf{Output}: Dual$\left(f(\vec{x}),\frac{\partial}{\partial\vec{z}}f(\vec{x})\right)$
+\begin{algorithmic}[1]
+\State initialize vector $D$ of $n$ dual numbers
+    \For{$i\gets 1\textbf{ to }n$}
+        \State $D_i\gets Dual(x_i, z_i)$
+    \EndFor\\
+\Return $f(D)$
+\end{algorithmic}
+\end{algorithm}
 
 \section*{Reverse Mode}
 
 \subsection*{Adjoint}
-The adjoint is a key idea essential to reverse mode. 
-The adjoint of a node in our compuational graph is simply the deriviative of the
-overall function with respect to that nodes function.
+The adjoint of some intermediate function $w_i=g(\vec{x})$ in a computational graph of $f(\vec{x})$ is defined to be:
+$$\dot{w_i}=\frac{\partial f}{\partial w_i}$$
 
 \subsubsection*{Key Observations}
-Let $P$ be the set of parents of the node whos function is equal to $x_i$, then
-$$\frac{\partial f}{\partial x_i}=\sum_{w\in P}{\frac{\partial f}{\partial w}\frac{\partial w}{\partial x_i}}$$
-
-The final node in our compuation graph has an adjoint of 1.
-
-By starting at the top of our computational graph we can traverse the graph
-from the top down, updating the adjoint values as we go, to compute the adjoint 
-of each input node.
-
-This can be done in time proportional to the original function and obtains the derivatives
-in $n$ elementary directions which is the gradient of the function.
+\begin{itemize}
+\item Let $P$ be the set of parents of some intermediate function $w_i$, then
+    \begin{equation}
+\dot{w_i}=\frac{\partial f}{\partial w_i}=\sum_{w_j\in P}{\frac{\partial f}{\partial w_j}\frac{\partial w_j}{\partial w_i}}
+    \end{equation}
+\item The final node in our compuation graph has an adjoint of 1.
+\item Each node $w_i$ has at most 2 children which have adjoint's dependent on $\dot{w_i}$.
+\item Our base case is at the end instead of the beginning of the function evaluation.
+\end{itemize}
 
 \subsection*{Implementation}
-For implementation we use a tape, or array of nodes which represents our computation graph.
-If one were to traverse this tape it would be equivalent to evaluating the function.
-Obviously we don't wish to evaluate the function we want to calculate the adjoint of 
-all the nodes within the tape. To do this we set the final nodes adjoint to 1.
-Now for each node we need to visit its children (at most 2) and update their adjoint values.
-To do this we need the childrens values, and the adjoint of their parent. Then we 
-will simply add the product of the adjoint and the derivative of the parent with repsect to
-the child to the childs adjoint.
+\subsubsection*{Tape}
+We use a tape to record the computational graph of our function. Using an array for
+the tape will help reduce memory access time. 
+
+\vspace{5mm}
+\begin{center}
+\begin{tikzpicture}[main/.style = {draw, minimum size = 2cm}]
+    \node[main] (1) {$x_1$};
+    \node[main] (2) [right = 0mm of 1] {$x_2$};
+    \node[main] (3) [right = 0mm of 2] {$w_3$};
+    \node[main] (4) [right = 0mm of 3] {$w_4$};
+    \node[main] (5) [right = 0mm of 4] {$w_5$};
+    \path[draw, thick, <-]
+        (1.south) -- ++ (0,-7mm) to 
+        ([yshift=-7mm] 2.south) -| ([xshift=-2mm] 3.south) -- (3);
+    \path[draw, thick, <-]
+        ([xshift=2mm]3.south) -- ++ (0,-7mm) to 
+        ([yshift=-7mm] 4.south) -| ([xshift=0mm] 5.south) -- (5);
+    \path[draw, thick, <-]
+        ([xshift=2mm]4.north) -- ++ (0,7mm) to 
+        ([yshift=7mm] 5.north) -| ([xshift=0mm] 5.north) -- (5);
+    \path[draw, thick, <-]
+        (2.north) -- ++ (0,5mm) to 
+        ([yshift=5mm] 3.north) -| ([xshift=-2mm] 4.north) -- (4);
+    \path[draw, thick, <-]
+        (1.north) -- ++ (0,9mm) to 
+        ([yshift=9mm] 2.north) -| ([xshift=0mm] 4.north) -- (4);
+\end{tikzpicture}
+\end{center}
 
 \subsubsection*{Node}
+Each element of our tape is a node in our computational graph that stores the following:
+\begin{itemize}
+    \item The value of the function evaluated at a given point.
+    \item The adjoint of the function.
+    \item The indices of itself and (up to) two children.
+    \item The trivial derivatives with repsect to the children.
+    \item A reference to the tape itself.
+\end{itemize}
 
 \subsubsection*{Operator Overloading}
 Similar to forward mode, we will use operator overloading to build our tape, that
 is whenever an operation is called on two nodes, we wish to add a new node
 representing its composition function to the end of our tape.
 
-\subsection*{Algorithm}
-Initialize $n$ nodes with values corresponding to the input to be the first $n$ nodes in the tape. \\
-Call the function on the vector that is the first $n$ elements of the tape. \\
-Set the adjoint of the final vector to be 1. \\
-Traverse the tape backwards updating the adjoint of the children that compose each node. \\
-Return the adjoint of the first $n$ nodes in the tape. \\
+\begin{algorithm}[H]
+\caption{Reverse Mode}
+    \hspace*{\algorithmicindent} \textbf{Input}: $f(\vec{x}),\vec{x}$ \\
+    \hspace*{\algorithmicindent} \textbf{Output}: $\nabla f(\vec{x})$
+\begin{algorithmic}[1]
+\State $c\gets$ number of nodes in computational graph
+\State initialize array $tape$ of $c$ Nodes
+\For{$i\gets 1\textbf{ to }n$}
+    \State $tape[i]\gets Node(x_i, 0, [i,0,0], [0,0], tape)$
+\EndFor\\
+$f(tape[1\dots n])$ 
+    \State $tape[c].adjoint\gets 1$
+\For{$i\gets c\textbf{ down to }n+1$}
+    \State $tape[child1]+=tape[i].adjoint*tape[i].derivative1$
+    \State $tape[child2]+=tape[i].adjoint*tape[i].derivative2$
+\EndFor\\
+    \Return $tape[1\dots n].adjoint$
+\end{algorithmic}
+\end{algorithm}
 
-\section*{Higher Order Derivatives}
-Calculating an order $n$ derivivative simply involves performing forward and/or reverse mode
-$n$ total times. This allows for the derivative(s) calculated in the previous pass to
-have a derivative component themselves.
+\section*{Results}
+\subsection*{Gradient}
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[
+        xlabel={Input Size [$10^4$]},
+xtick={0,1,2,3,4,5},
+ytick={0,34000},
+ymax = 35000,
+legend pos = outer north east,
+    ylabel={Computation Time [ms]},
+width=0.5\linewidth,
+height=0.3\linewidth
+]
 
-\subsection*{Forward Forward}
-By far the simplest higher order derivative example would be second order derivatives using
-two forward passes. This is done by having a Dual number with Dual numbers for the value and
-derivative componenents. The process is very similar, just initialize a vector of
-these double dual numbers, giving the value component a derivivative component 
-pertaining to the second direction and the derivative component a value component pertaining
-to the first direction. After calling the function on these double dual numbers double
-dual number returned will have the second derivative with respect to both directions provided
-in derivative component of the derivative component. This can be and has been implemented
-for $n$ order derivatives.
+\addplot coordinates {
+    (1,1289.206)
+    (2,5298.345)
+    (3,11796.312)
+    (4,21877.891)
+    (5,34033.270)
+};
+\addlegendentry{Forward Mode}
 
-\subsection*{Reverse Forward}
-Reverse Forward involves constructing a tape of Nodes with Dual numbers for the
-adjoint component. This allowed for us to calculate the gradient efficiently and
-then take the derivivaive with respect to a preallocated direction of the entire
-gradient, yielding $n$ second order derivatives in time proporitional to the 
-evaluation of the function. 
+\addplot coordinates {
+    (1,025.315)
+    (2,050.880)
+    (3,0081.533)
+    (4,0109.979)
+    (5,0141.833)
+};
+\addlegendentry{Reverse Mode}
 
-\subsection*{Forward Reverse}
-Forward Reverse involves using Dual numbers with Node components, to construct a 
-tape that can evaluate both the function and its derivative in a specified direction.
-Then by setting the adjoint of the derivative function to 1 and rewinding the tape
-we obtain the gradient of the derivavtive in a given direction. This has many applications
-to machine learning.
+\end{axis}
+\end{tikzpicture}
+    \captionof{figure}{A plot comparing the computation time of reverse and forward
+    mode calculating the gradient of various instances of the Rosenbrock function. The key observation
+    here is that forward mode grows proportional to $n^2$ compared to only $n$ for reverse.}
+\end{center}
+
+\subsection*{Hessian}
+We may calculate higher order derivatives by performing multiple instances of reverse and/or
+forward mode. From these higher order derivatives we can form structures such as the Hessian matrix.
+
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[
+        xlabel={Input Size [$10^3$]},
+xtick={0,1,2,3,4,5},
+ytick={0, 60, 120, 180, 240},
+ymax = 250,
+legend pos = outer north east,
+    ylabel={Computation Time [s]},
+width=0.5\linewidth,
+height=0.3\linewidth
+]
+
+\addplot coordinates {
+    (1,1.93897)
+    (2,15.271401)
+    (3,53.221918)
+    (4,130.57251)
+    (5,248.190596)
+};
+\addlegendentry{Forward Forward}
+
+\addplot coordinates {
+    (1,6.073335)
+    (2,19.824306)
+    (3,51.5246)
+    (4,100.625566)
+    (5,169.947057)
+};
+\addlegendentry{Reverse Forward}
+
+\addplot coordinates {
+    (1,6.416108)
+    (2,25.326868)
+    (3,73.401066)
+    (4,135.731482)
+    (5,213.101433)
+};
+\addlegendentry{Forward Reverse}
+
+\end{axis}
+\end{tikzpicture}
+    \captionof{figure}{A plot comparing the computation time of the Hessian matrix
+    on the Rosenbrock function using different combinations of automatic differentiation.}
+\end{center}
+
+\section*{Future Work}
+\begin{itemize}
+    \item Continue research here at Michigan Tech for the remainder of the semester under the supervision of B. W. Ong.
+    \item Improve the efficiency of higher order derivative implementations.
+    \item Minimize the space used for each Node in reverse mode.
+    \item Construct reusable tape for faster sequential reverse passes.
+\end{itemize}
+
+\section*{References}
+\begin{enumerate}[{label=[\arabic{*}]}]
+    \item Revels, Jarrett, Miles Lubin, and Theodore Papamarkou. "Forward-mode automatic differentiation in Julia." arXiv preprint arXiv:1607.07892 (2016).
+    \item Tom J. Smeding and Matthijs I. L. Vákár. 2023. Efficient Dual-Numbers Reverse AD via Well-Known Program Transformations. Proc. ACM Program. Lang. 7, POPL, Article 54 (January 2023), 28 pages. https://doi.org/10.1145/3571247
+\end{enumerate}
+
 \end{multicols}
 \end{document}
